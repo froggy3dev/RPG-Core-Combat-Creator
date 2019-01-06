@@ -6,10 +6,11 @@ using UnityStandardAssets.Characters.ThirdPerson;
 public class PlayerMovement : MonoBehaviour
 {
     [SerializeField] float walkMoveStopRadius = 0.2f;
+    [SerializeField] float attackMoveStopRadius = 3f;
 
     ThirdPersonCharacter thirdPersonCharacter;   // A reference to the ThirdPersonCharacter on the object
     CameraRaycaster cameraRaycaster;
-    Vector3 currentClickTarget;
+    Vector3 currentDestination, clickPoint;
 
     bool isInDirectMode = false; //TODO consider making static later.
 
@@ -17,15 +18,15 @@ public class PlayerMovement : MonoBehaviour
     {
         cameraRaycaster = Camera.main.GetComponent<CameraRaycaster>();
         thirdPersonCharacter = GetComponent<ThirdPersonCharacter>();
-        currentClickTarget = transform.position;
+        currentDestination = transform.position;
     }
 
-    private void FixedUpdate()
+    private void Update()
     {
         if(Input.GetKeyDown(KeyCode.G))
         {
             isInDirectMode = !isInDirectMode;
-            currentClickTarget = transform.position;
+            currentDestination = transform.position;
         }
 
         if (isInDirectMode)
@@ -53,13 +54,14 @@ public class PlayerMovement : MonoBehaviour
     {
         if (Input.GetMouseButton(0))
         {
+            clickPoint = cameraRaycaster.hit.point;
             switch (cameraRaycaster.currentLayerHit)
             {
                 case Layer.Walkable:
-                    currentClickTarget = cameraRaycaster.hit.point;
+                    currentDestination = ShortDestination(clickPoint, walkMoveStopRadius);
                     break;
                 case Layer.Enemy:
-                    Debug.Log("Enemy spotted");
+                    currentDestination = ShortDestination(clickPoint, attackMoveStopRadius);
                     break;
                 default:
                     Debug.Log("Unknown target");
@@ -67,9 +69,14 @@ public class PlayerMovement : MonoBehaviour
             }
         }
 
-        var playerToClickPoint = currentClickTarget - transform.position;
+        WalkToDestination();
+    }
 
-        if (playerToClickPoint.sqrMagnitude >= walkMoveStopRadius)
+    private void WalkToDestination()
+    {
+        var playerToClickPoint = currentDestination - transform.position;
+
+        if (playerToClickPoint.sqrMagnitude >= 0.01f)
         {
             thirdPersonCharacter.Move(playerToClickPoint, false, false);
         }
@@ -77,6 +84,20 @@ public class PlayerMovement : MonoBehaviour
         {
             thirdPersonCharacter.Move(Vector3.zero, false, false);
         }
+    }
+
+    private Vector3 ShortDestination(Vector3 destination, float shortening)
+    {
+        var reductionVector = (destination - transform.position).normalized * shortening;
+        return destination - reductionVector;
+    }
+
+    private void OnDrawGizmos()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawLine(transform.position, clickPoint);
+        Gizmos.DrawSphere(currentDestination, 0.1f);
+        Gizmos.DrawSphere(clickPoint, 0.14f);
     }
 }
 
